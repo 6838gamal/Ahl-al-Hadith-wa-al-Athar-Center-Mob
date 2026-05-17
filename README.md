@@ -1,20 +1,92 @@
-# Hello World
+# مركز أهل الحديث والأثر
+## Ahl al-Hadith wa al-Athar Center
 
-A new Flutter project created with FlutLab - https://flutlab.io
+منصة تعليمية إسلامية متكاملة مبنية بـ Flutter
 
-## Getting Started
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 🏗️ المعمارية
 
-- https://flutter.dev/docs/get-started/codelab
-- https://flutter.dev/docs/cookbook
+Clean Architecture + Feature-First Structure
 
-For help getting started with Flutter, view our
-https://flutter.dev/docs, which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```
+lib/
+├── core/
+│   ├── constants/         # App-wide constants
+│   ├── errors/            # Failures & exceptions
+│   ├── extensions/        # Dart extensions
+│   ├── networking/        # Dio client + interceptors
+│   ├── services/          # Mock data service
+│   ├── storage/           # Secure storage wrapper
+│   └── utils/             # Result type (Either)
+├── shared/
+│   ├── models/            # Shared data models
+│   ├── widgets/           # Reusable UI components
+│   └── screens/           # Shared screens (Home, Profile)
+├── features/
+│   ├── auth/              # Login, Register, Session
+│   ├── messaging/         # Conversations, Chat, Audio
+│   ├── notifications/     # Push notifications UI
+│   └── tickets/           # Support ticket system
+├── admin_panel/
+│   ├── dashboard/         # Stats overview
+│   ├── users/             # User management
+│   ├── analytics/         # Charts & reports
+│   └── shared/layout/     # Admin sidebar layout
+├── config/
+│   ├── env/               # Environment config
+│   └── theme/             # Colors, Typography, Theme
+└── routes/                # GoRouter setup
+```
 
-## Getting Started: FlutLab - Flutter Online IDE
+---
 
-- How to use FlutLab? Please, view our https://flutlab.io/docs
-- Join the discussion and conversation on https://flutlab.io/residents
-# Ahl-al-Hadith-wa-al-Athar-Center-Mob
+## 📦 Tech Stack
+
+| Category | Package |
+|---|---|
+| State Management | flutter_riverpod |
+| Navigation | go_router |
+| Networking | dio |
+| Local Storage | hive_flutter |
+| Secure Storage | flutter_secure_storage |
+| Audio | just_audio + audio_waveforms |
+
+---
+
+## 🔌 API Layer (Mock → FastAPI Ready)
+
+MockDataService → (swap later) → FastAPI REST API
+
+To add FastAPI: Replace MockDataService calls in repositories with ApiClient HTTP calls. Zero UI changes needed.
+
+---
+
+## 👤 User Roles
+
+| Role | Arabic | Access |
+|---|---|---|
+| admin | مدير النظام | Full access |
+| moderator | مشرف | Moderation |
+| sheikh | شيخ | Teaching |
+| male_student | طالب | Student |
+| female_student | طالبة | Student (gender-filtered) |
+
+---
+
+## 🚀 Running
+
+```bash
+flutter pub get
+flutter build web --release
+python3 serve.py
+```
+
+---
+
+## 🗄️ Database
+
+See database/README.md for full PostgreSQL schema.
+
+Demo accounts (password: 1234):
+- admin / sheikh_ibrahim / student_ali

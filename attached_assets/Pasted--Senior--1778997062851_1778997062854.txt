@@ -1,0 +1,310 @@
+أنت مهندس برمجيات Senior متخصص في بناء الأنظمة القابلة للتوسع طويلة المدى.
+
+أريد بناء مشروع متكامل باسم:
+
+"مركز أهل الحديث والأثر"
+
+لكن في المرحلة الحالية أريد التركيز على:
+
+* Flutter Frontend
+* PostgreSQL Database
+* Architecture احترافية
+* API Layer جاهزة
+* Local/Mock Backend مؤقت
+* Admin Panel داخل Flutter
+
+مع تصميم المشروع منذ البداية بحيث يكون:
+
+* قابل لإضافة Python FastAPI لاحقاً بسهولة
+* قابل لإضافة Docker لاحقاً بسهولة
+* قابل للتحول إلى Production Backend بدون إعادة هيكلة جذرية
+
+بمعنى:
+لا أريد حالياً Backend Production كامل ولا Docker Infrastructure، لكن أريد أن تكون المعمارية مهيأة لهما من البداية.
+
+========================
+🎯 الهدف الحالي
+===============
+
+بناء MVP احترافي يعمل فعلياً محلياً أو عبر Mock/API Layer مؤقتة، مع:
+
+* Authentication
+* Messaging UI
+* Groups
+* Courses
+* Shared Inbox
+* Notifications
+* Admin Dashboard
+* PostgreSQL Schema كامل
+
+لكن بدون:
+
+* FastAPI فعلي حالياً
+* Docker فعلي حالياً
+* Redis فعلي حالياً
+
+مع الحفاظ على:
+
+* Clean Architecture
+* Scalability
+* Separation of Concerns
+
+========================
+📱 Frontend
+===========
+
+استخدم:
+
+* Flutter Latest Stable
+* Riverpod
+* GoRouter
+* Dio
+* Freezed
+* Json Serializable
+* Hive أو Isar
+* Flutter Secure Storage
+* Just Audio
+* Audio Waveforms
+
+Architecture:
+
+* Clean Architecture
+* Feature First Structure
+
+========================
+🧱 هيكلية المشروع
+=================
+
+lib/
+│
+├── core/
+├── shared/
+├── features/
+├── admin_panel/
+├── config/
+├── routes/
+└── main.dart
+
+========================
+🖥️ لوحة التحكم
+===============
+
+داخل نفس مشروع Flutter لكن مفصولة تنظيمياً:
+
+admin_panel/
+│
+├── dashboard/
+├── users/
+├── analytics/
+├── moderation/
+├── groups_management/
+├── tickets_management/
+└── shared/
+
+المطلوب:
+
+* Routing منفصل
+* Layout منفصل
+* Guards للصلاحيات
+* Responsive Design
+* قابلة للفصل لاحقاً كمشروع مستقل
+
+========================
+🗄️ قاعدة البيانات
+==================
+
+استخدم PostgreSQL من البداية.
+
+أنشئ:
+
+database/
+│
+├── migrations/
+├── schema/
+├── seeds/
+├── functions/
+├── triggers/
+├── views/
+└── README.md
+
+المطلوب:
+
+* Database Schema كامل
+* UUID Primary Keys
+* Foreign Keys
+* Indexes
+* Soft Deletes
+* Audit Columns
+* Constraints
+* ENUM Types
+* Full Text Search
+
+========================
+🔌 API Layer
+============
+
+حتى بدون Backend حقيقي حالياً، أنشئ:
+
+core/networking/
+
+ويحتوي:
+
+* Dio Client
+* API Contracts
+* DTOs
+* Repository Pattern
+* Mock Services
+* Response Models
+* Error Handling
+* Token Handling
+
+بحيث لاحقاً:
+
+* يتم فقط استبدال Mock Services بـ FastAPI APIs
+* بدون تغيير الـ UI أو الـ Architecture
+
+========================
+👤 نظام المستخدمين
+==================
+
+تنفيذ:
+
+* Login
+* Register
+* Pending Approval
+* Session Persistence
+
+Fields:
+
+* username
+* password
+* academic_id
+
+Roles:
+
+* admin
+* moderator
+* sheikh
+* male_student
+* female_student
+
+========================
+👥 الفصل الجندري
+================
+
+تنفيذ Architecture تدعم:
+
+* Gender-Based Rendering
+* Dynamic Visibility
+* Restricted Interactions
+* Group Filtering
+
+مع إمكانية ربط المنطق لاحقاً من API.
+
+========================
+💬 نظام المراسلة
+================
+
+تنفيذ Messaging UI كامل مع:
+
+* Fake Local Data
+* Mock Conversations
+* Voice Messages UI
+* Reply
+* Mention
+* Reactions
+* Search
+
+ويجب أن تكون Architecture جاهزة لاحقاً لـ:
+
+* WebSockets
+* Realtime Sync
+* Redis
+
+========================
+🎙️ الوسائط
+===========
+
+تنفيذ:
+
+* Progressive Audio Loading
+* Local Audio Cache
+* Offline Replay
+
+========================
+🎫 نظام التذاكر
+===============
+
+واجهة كاملة لـ:
+
+* Shared Inbox
+* Tickets
+* Assignments
+* Statuses
+
+باستخدام Mock Data حالياً.
+
+========================
+🛡️ الأمان
+==========
+
+تنفيذ:
+
+* Secure Storage
+* Route Guards
+* Permission Guards
+* Screenshot Protection Hooks
+* Session Management
+
+========================
+🚀 قابلية التوسع المستقبلية
+===========================
+
+المشروع يجب أن يكون مهيأ لإضافة:
+
+لاحقاً:
+
+* FastAPI
+* Redis
+* WebSockets
+* Docker
+* Nginx
+* CI/CD
+
+بدون إعادة كتابة المشروع.
+
+========================
+📦 المطلوب النهائي
+==================
+
+أريد منك إنشاء:
+
+1. Flutter Project كامل
+2. Clean Architecture
+3. Folder Structure احترافي
+4. PostgreSQL Schema كامل
+5. SQL Migrations
+6. Seed Data
+7. Mock Backend Layer
+8. API Contracts
+9. Auth Module
+10. Messaging Module
+11. Admin Panel
+12. Repositories
+13. DTOs
+14. Providers
+15. Shared Widgets
+16. README احترافي
+17. Environment Config
+18. Production-Ready Architecture
+
+ابدأ الآن بإنشاء:
+
+1. PostgreSQL Database Design
+2. Folder Structure
+3. Core Architecture
+4. Auth Module
+5. Messaging Module
+6. Admin Panel Layout
+7. Mock API Layer
+8. ثم Generate الكود الأساسي للمشروع.
