@@ -19,6 +19,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  int _logoPressCount = 0;
+  DateTime? _lastLogoPress;
 
   @override
   void dispose() {
@@ -30,10 +32,131 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     final success = await ref.read(authProvider.notifier).login(
-          _usernameController.text.trim(),
-          _passwordController.text.trim(),
-        );
-    if (success && mounted) context.go('/home');
+      _usernameController.text.trim(),
+      _passwordController.text.trim(),
+    );
+    if (!mounted) return;
+    if (success) {
+      final user = ref.read(authProvider).user;
+      if (user != null && (user.isAdmin || user.isModerator)) {
+        context.go('/admin');
+      } else {
+        context.go('/home');
+      }
+    }
+  }
+
+  void _handleLogoTap() {
+    final now = DateTime.now();
+    if (_lastLogoPress != null && now.difference(_lastLogoPress!).inMilliseconds < 500) {
+      _logoPressCount++;
+    } else {
+      _logoPressCount = 1;
+    }
+    _lastLogoPress = now;
+
+    if (_logoPressCount >= 2) {
+      _logoPressCount = 0;
+      _showAdminLoginDialog();
+    }
+  }
+
+  void _showAdminLoginDialog() {
+    final usernameCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
+    bool obscure = true;
+    bool loading = false;
+    String? error;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.admin_panel_settings_rounded, color: AppColors.primary, size: 22),
+              ),
+              const SizedBox(width: 12),
+              const Text('دخول الإدارة'),
+            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: usernameCtrl,
+                  textDirection: TextDirection.ltr,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم المستخدم',
+                    prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                StatefulBuilder(
+                  builder: (_, setSt) => TextField(
+                    controller: passwordCtrl,
+                    obscureText: obscure,
+                    textDirection: TextDirection.ltr,
+                    decoration: InputDecoration(
+                      labelText: 'كلمة المرور',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () { setSt(() => obscure = !obscure); setDialogState(() {}); },
+                      ),
+                    ),
+                  ),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Row(children: [
+                      const Icon(Icons.error_outline, color: AppColors.error, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 12))),
+                    ]),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                onPressed: loading ? null : () async {
+                  setDialogState(() { loading = true; error = null; });
+                  final success = await ref.read(authProvider.notifier).adminLogin(
+                    usernameCtrl.text.trim(),
+                    passwordCtrl.text.trim(),
+                  );
+                  if (!mounted) return;
+                  if (success) {
+                    Navigator.pop(ctx);
+                    context.go('/admin');
+                  } else {
+                    setDialogState(() {
+                      loading = false;
+                      error = ref.read(authProvider).error ?? 'بيانات الدخول غير صحيحة';
+                    });
+                  }
+                },
+                child: loading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('دخول', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -70,15 +193,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
+        GestureDetector(
+          onTap: _handleLogoTap,
+          child: Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
+            ),
+            child: const Icon(Icons.mosque_rounded, size: 52, color: Colors.white),
           ),
-          child: const Icon(Icons.mosque_rounded, size: 52, color: Colors.white),
         ),
         const SizedBox(height: 20),
         Text('مركز أهل الحديث والأثر', style: AppTextStyles.h2, textAlign: TextAlign.center),
@@ -126,22 +252,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline, color: AppColors.error, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(authState.error!, style: AppTextStyles.bodySmall.copyWith(color: AppColors.error))),
-                ],
-              ),
+              child: Row(children: [
+                const Icon(Icons.error_outline, color: AppColors.error, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(authState.error!, style: AppTextStyles.bodySmall.copyWith(color: AppColors.error))),
+              ]),
             ),
           ],
           const SizedBox(height: 24),
-          AppButton(
-            label: 'تسجيل الدخول',
-            isLoading: authState.isLoading,
-            onPressed: _login,
-            icon: Icons.login_rounded,
-          ),
+          AppButton(label: 'تسجيل الدخول', isLoading: authState.isLoading, onPressed: _login, icon: Icons.login_rounded),
           const SizedBox(height: 12),
           _buildDemoAccounts(),
         ],
@@ -154,6 +273,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ('admin', 'مدير النظام'),
       ('sheikh_ibrahim', 'شيخ'),
       ('student_ali', 'طالب'),
+      ('student_sara', 'طالبة'),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

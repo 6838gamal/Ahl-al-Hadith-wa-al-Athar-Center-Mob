@@ -1,69 +1,143 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
+import '../../../../core/networking/api_client.dart';
+import '../../../../core/networking/api_endpoints.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/extensions/datetime_extensions.dart';
 
-enum TicketStatus { open, inProgress, resolved, closed }
-enum TicketPriority { low, medium, high, urgent }
+// ─── Models ───────────────────────────────────────────────────
 
-class TicketModel {
-  final String id, title, body, submitterId, submitterName;
-  final TicketStatus status;
-  final TicketPriority priority;
-  final String? assigneeId, assigneeName;
-  final DateTime createdAt;
+class TicketData {
+  final String id, title, body, submitterId;
+  final String? submitterName, assigneeId, assigneeName;
+  final String status, priority;
+  final List<TicketReplyData> replies;
+  final DateTime createdAt, updatedAt;
   final DateTime? resolvedAt;
 
-  const TicketModel({required this.id, required this.title, required this.body, required this.submitterId, required this.submitterName, required this.status, required this.priority, this.assigneeId, this.assigneeName, required this.createdAt, this.resolvedAt});
+  const TicketData({
+    required this.id, required this.title, required this.body,
+    required this.submitterId, this.submitterName, this.assigneeId, this.assigneeName,
+    required this.status, required this.priority, this.replies = const [],
+    required this.createdAt, required this.updatedAt, this.resolvedAt,
+  });
+
+  factory TicketData.fromJson(Map<String, dynamic> j) => TicketData(
+    id: j['id'] as String, title: j['title'] as String, body: j['body'] as String,
+    submitterId: j['submitter_id'] as String,
+    submitterName: (j['submitter'] as Map?)?['display_name'] as String? ?? (j['submitter'] as Map?)?['username'] as String?,
+    assigneeId: j['assignee_id'] as String?,
+    assigneeName: (j['assignee'] as Map?)?['display_name'] as String? ?? (j['assignee'] as Map?)?['username'] as String?,
+    status: j['status'] as String, priority: j['priority'] as String,
+    replies: (j['replies'] as List? ?? []).map((r) => TicketReplyData.fromJson(r as Map<String, dynamic>)).toList(),
+    createdAt: DateTime.parse(j['created_at'] as String),
+    updatedAt: DateTime.parse(j['updated_at'] as String),
+    resolvedAt: j['resolved_at'] != null ? DateTime.tryParse(j['resolved_at'] as String) : null,
+  );
 }
 
-class TicketsScreen extends StatefulWidget {
+class TicketReplyData {
+  final String id, authorId, content;
+  final String? authorName;
+  final bool isInternal;
+  final DateTime createdAt;
+  const TicketReplyData({required this.id, required this.authorId, required this.content, this.authorName, required this.isInternal, required this.createdAt});
+  factory TicketReplyData.fromJson(Map<String, dynamic> j) => TicketReplyData(
+    id: j['id'] as String, authorId: j['author_id'] as String, content: j['content'] as String,
+    authorName: (j['author'] as Map?)?['display_name'] as String? ?? (j['author'] as Map?)?['username'] as String?,
+    isInternal: j['is_internal'] as bool? ?? false,
+    createdAt: DateTime.parse(j['created_at'] as String),
+  );
+}
+
+// ─── Provider ─────────────────────────────────────────────────
+
+final ticketsProvider =
+    StateNotifierProvider<TicketsNotifier, AsyncValue<List<TicketData>>>((ref) {
+  ref.watch(currentUserProvider);
+  return TicketsNotifier();
+});
+
+class TicketsNotifier extends StateNotifier<AsyncValue<List<TicketData>>> {
+  final ApiClient _api = ApiClient.instance;
+  TicketsNotifier() : super(const AsyncValue.loading()) { load(); }
+
+  Future<void> load({String? status}) async {
+    try {
+      final res = await _api.get(ApiEndpoints.tickets, queryParameters: status != null ? {'status': status} : null);
+      final list = (res.data as List).map((j) => TicketData.fromJson(j as Map<String, dynamic>)).toList();
+      state = AsyncValue.data(list);
+    } catch (e, st) { state = AsyncValue.error(e, st); }
+  }
+
+  Future<bool> createTicket(String title, String body, String priority) async {
+    try {
+      final res = await _api.post(ApiEndpoints.tickets, data: {'title': title, 'body': body, 'priority': priority});
+      final newTicket = TicketData.fromJson(res.data as Map<String, dynamic>);
+      state.whenData((list) => state = AsyncValue.data([newTicket, ...list]));
+      return true;
+    } catch (_) { return false; }
+  }
+
+  Future<bool> addReply(String ticketId, String content) async {
+    try {
+      await _api.post(ApiEndpoints.ticketReplies(ticketId), data: {'content': content, 'is_internal': false});
+      await load();
+      return true;
+    } catch (_) { return false; }
+  }
+}
+
+// ─── Screen ───────────────────────────────────────────────────
+
+class TicketsScreen extends ConsumerStatefulWidget {
   const TicketsScreen({super.key});
-
   @override
-  State<TicketsScreen> createState() => _TicketsScreenState();
+  ConsumerState<TicketsScreen> createState() => _TicketsScreenState();
 }
 
-class _TicketsScreenState extends State<TicketsScreen> with SingleTickerProviderStateMixin {
+class _TicketsScreenState extends ConsumerState<TicketsScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final _tickets = [
-    TicketModel(id: 't1', title: 'استفسار عن موعد الدرس', body: 'هل سيُقام الدرس الأسبوعي يوم الجمعة؟', submitterId: 'u4', submitterName: 'علي محمد', status: TicketStatus.open, priority: TicketPriority.medium, createdAt: DateTime(2025, 5, 10)),
-    TicketModel(id: 't2', title: 'مشكلة في تسجيل الدخول', body: 'لا أستطيع الدخول منذ يومين', submitterId: 'u5', submitterName: 'فاطمة الأنصاري', status: TicketStatus.inProgress, priority: TicketPriority.high, assigneeId: 'u3', assigneeName: 'سارة المشرفة', createdAt: DateTime(2025, 5, 9)),
-    TicketModel(id: 't3', title: 'طلب شهادة إتمام دورة', body: 'أطلب شهادة لدورة مصطلح الحديث', submitterId: 'u6', submitterName: 'عمر خالد', status: TicketStatus.resolved, priority: TicketPriority.low, createdAt: DateTime(2025, 5, 5), resolvedAt: DateTime(2025, 5, 7)),
-    TicketModel(id: 't4', title: 'خطأ في رفع الملف', body: 'عند محاولة رفع ملف PDF يظهر خطأ', submitterId: 'u4', submitterName: 'علي محمد', status: TicketStatus.open, priority: TicketPriority.urgent, createdAt: DateTime(2025, 5, 11)),
-  ];
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
   }
-
   @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+  void dispose() { _tabController.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
+    final ticketsAsync = ref.watch(ticketsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('صندوق التذاكر'),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
+          labelColor: Colors.white, unselectedLabelColor: Colors.white70,
           indicatorColor: AppColors.secondary,
           tabs: const [Tab(text: 'مفتوحة'), Tab(text: 'قيد المعالجة'), Tab(text: 'مُغلقة')],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _TicketsList(tickets: _tickets.where((t) => t.status == TicketStatus.open).toList()),
-          _TicketsList(tickets: _tickets.where((t) => t.status == TicketStatus.inProgress).toList()),
-          _TicketsList(tickets: _tickets.where((t) => t.status == TicketStatus.resolved || t.status == TicketStatus.closed).toList()),
-        ],
+      body: ticketsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.error_outline, size: 48, color: AppColors.textMuted),
+          const SizedBox(height: 12),
+          Text('خطأ في التحميل', style: AppTextStyles.body),
+          const SizedBox(height: 8),
+          ElevatedButton(onPressed: () => ref.read(ticketsProvider.notifier).load(), child: const Text('إعادة المحاولة')),
+        ])),
+        data: (tickets) => TabBarView(
+          controller: _tabController,
+          children: [
+            _TicketsList(tickets: tickets.where((t) => t.status == 'open').toList(), onRefresh: () => ref.read(ticketsProvider.notifier).load()),
+            _TicketsList(tickets: tickets.where((t) => t.status == 'in_progress').toList(), onRefresh: () => ref.read(ticketsProvider.notifier).load()),
+            _TicketsList(tickets: tickets.where((t) => t.status == 'resolved' || t.status == 'closed').toList(), onRefresh: () => ref.read(ticketsProvider.notifier).load()),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showNewTicketDialog(context),
@@ -75,116 +149,136 @@ class _TicketsScreenState extends State<TicketsScreen> with SingleTickerProvider
   }
 
   void _showNewTicketDialog(BuildContext context) {
+    final titleCtrl = TextEditingController();
+    final bodyCtrl = TextEditingController();
+    String priority = 'medium';
+    bool loading = false;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _NewTicketSheet(),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setState) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('تذكرة جديدة', style: AppTextStyles.h3),
+            const SizedBox(height: 16),
+            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'الموضوع', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: bodyCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'التفاصيل', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: priority,
+              decoration: const InputDecoration(labelText: 'الأولوية', border: OutlineInputBorder()),
+              items: const [DropdownMenuItem(value: 'low', child: Text('منخفضة')), DropdownMenuItem(value: 'medium', child: Text('متوسطة')), DropdownMenuItem(value: 'high', child: Text('عالية')), DropdownMenuItem(value: 'urgent', child: Text('عاجلة'))],
+              onChanged: (v) => setState(() => priority = v!),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: loading ? null : () async {
+                if (titleCtrl.text.isEmpty || bodyCtrl.text.isEmpty) return;
+                setState(() => loading = true);
+                final ok = await ref.read(ticketsProvider.notifier).createTicket(titleCtrl.text.trim(), bodyCtrl.text.trim(), priority);
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                if (ok) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال التذكرة بنجاح'), backgroundColor: AppColors.success));
+              },
+              child: loading ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('إرسال', style: TextStyle(color: Colors.white)),
+            ),
+            const SizedBox(height: 16),
+          ]),
+        ),
+      )),
     );
   }
 }
 
 class _TicketsList extends StatelessWidget {
-  final List<TicketModel> tickets;
-  const _TicketsList({required this.tickets});
-
+  final List<TicketData> tickets;
+  final Future<void> Function() onRefresh;
+  const _TicketsList({required this.tickets, required this.onRefresh});
   @override
   Widget build(BuildContext context) {
     if (tickets.isEmpty) {
-      return Center(child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.inbox_rounded, size: 64, color: AppColors.textMuted),
-          const SizedBox(height: 12),
-          Text('لا توجد تذاكر', style: AppTextStyles.h3.copyWith(color: AppColors.textMuted)),
-        ],
-      ));
+      return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Icon(Icons.inbox_rounded, size: 48, color: AppColors.textMuted),
+        const SizedBox(height: 12),
+        Text('لا توجد تذاكر', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+      ]));
     }
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: tickets.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _TicketCard(ticket: tickets[i]),
-    );
-  }
-}
-
-class _TicketCard extends StatelessWidget {
-  final TicketModel ticket;
-  const _TicketCard({required this.ticket});
-
-  @override
-  Widget build(BuildContext context) {
-    final priorityData = {
-      TicketPriority.low: ('منخفضة', AppColors.success),
-      TicketPriority.medium: ('متوسطة', AppColors.warning),
-      TicketPriority.high: ('عالية', AppColors.error),
-      TicketPriority.urgent: ('عاجل', const Color(0xFF9B2226)),
-    };
-    final pd = priorityData[ticket.priority]!;
-    return Card(
-      child: Padding(
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text(ticket.title, style: AppTextStyles.h3.copyWith(fontSize: 15))),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: pd.$2.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: pd.$2)), child: Text(pd.$1, style: AppTextStyles.caption.copyWith(color: pd.$2, fontWeight: FontWeight.w700))),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(ticket.body, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.person_outline, size: 14, color: AppColors.textMuted),
-                const SizedBox(width: 4),
-                Text(ticket.submitterName, style: AppTextStyles.caption),
-                if (ticket.assigneeName != null) ...[
-                  const SizedBox(width: 12),
-                  const Icon(Icons.assignment_ind_outlined, size: 14, color: AppColors.textMuted),
-                  const SizedBox(width: 4),
-                  Text(ticket.assigneeName!, style: AppTextStyles.caption.copyWith(color: AppColors.primary)),
-                ],
-                const Spacer(),
-                Text('${ticket.createdAt.day}/${ticket.createdAt.month}/${ticket.createdAt.year}', style: AppTextStyles.caption),
-              ],
-            ),
-          ],
-        ),
+        itemCount: tickets.length,
+        itemBuilder: (_, i) => _TicketCard(ticket: tickets[i]),
       ),
     );
   }
 }
 
-class _NewTicketSheet extends StatelessWidget {
-  const _NewTicketSheet();
+class _TicketCard extends StatelessWidget {
+  final TicketData ticket;
+  const _TicketCard({required this.ticket});
+
+  Color get _statusColor => switch (ticket.status) {
+    'open' => AppColors.primary,
+    'in_progress' => AppColors.warning,
+    'resolved' => AppColors.success,
+    _ => AppColors.textMuted,
+  };
+
+  Color get _priorityColor => switch (ticket.priority) {
+    'urgent' => AppColors.error,
+    'high' => AppColors.warning,
+    'medium' => AppColors.primary,
+    _ => AppColors.textMuted,
+  };
+
+  String get _statusLabel => switch (ticket.status) {
+    'open' => 'مفتوحة',
+    'in_progress' => 'قيد المعالجة',
+    'resolved' => 'محلولة',
+    _ => 'مغلقة',
+  };
+
+  String get _priorityLabel => switch (ticket.priority) {
+    'urgent' => 'عاجلة',
+    'high' => 'عالية',
+    'medium' => 'متوسطة',
+    _ => 'منخفضة',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final titleController = TextEditingController();
-    final bodyController = TextEditingController();
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Container(
-        margin: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.3),
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: MediaQuery.of(context).viewInsets.bottom + 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('تذكرة جديدة', style: AppTextStyles.h3),
-            const SizedBox(height: 16),
-            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'عنوان التذكرة', border: OutlineInputBorder())),
-            const SizedBox(height: 12),
-            TextField(controller: bodyController, maxLines: 3, decoration: const InputDecoration(labelText: 'تفاصيل المشكلة', border: OutlineInputBorder())),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: () => Navigator.pop(context), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white), child: const Text('إرسال التذكرة')),
-          ],
-        ),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AppColors.border)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text(ticket.title, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700))),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(_statusLabel, style: TextStyle(color: _statusColor, fontSize: 11, fontWeight: FontWeight.w600))),
+          ]),
+          const SizedBox(height: 6),
+          Text(ticket.body, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 10),
+          Row(children: [
+            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: _priorityColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(_priorityLabel, style: TextStyle(color: _priorityColor, fontSize: 10))),
+            const Spacer(),
+            if (ticket.replies.isNotEmpty) ...[
+              Icon(Icons.chat_bubble_outline, size: 14, color: AppColors.textMuted),
+              const SizedBox(width: 4),
+              Text('${ticket.replies.length}', style: AppTextStyles.caption),
+              const SizedBox(width: 12),
+            ],
+            Text(ticket.createdAt.chatTime, style: AppTextStyles.caption),
+          ]),
+        ]),
       ),
     );
   }

@@ -1,55 +1,45 @@
 class ApiEndpoints {
   ApiEndpoints._();
 
-  // Auth
   static const String login = '/auth/login';
+  static const String adminLogin = '/auth/admin-login';
   static const String register = '/auth/register';
   static const String logout = '/auth/logout';
-  static const String refreshToken = '/auth/refresh';
   static const String me = '/auth/me';
-  static const String changePassword = '/auth/change-password';
 
-  // Users
   static const String users = '/users';
   static String userById(String id) => '/users/$id';
-  static const String pendingUsers = '/users/pending';
-  static String approveUser(String id) => '/users/$id/approve';
-  static String rejectUser(String id) => '/users/$id/reject';
-  static String banUser(String id) => '/users/$id/ban';
+  static const String updateMe = '/users/me';
 
-  // Messaging
-  static const String conversations = '/conversations';
-  static String conversationById(String id) => '/conversations/$id';
-  static String messages(String conversationId) => '/conversations/$conversationId/messages';
-  static String sendMessage(String conversationId) => '/conversations/$conversationId/messages';
-  static String deleteMessage(String conversationId, String messageId) =>
-      '/conversations/$conversationId/messages/$messageId';
+  static const String conversations = '/messages/conversations';
+  static String createConversation = '/messages/conversations';
+  static String conversationMessages(String id) => '/messages/conversations/$id/messages';
+  static String sendMessage(String id) => '/messages/conversations/$id/messages';
+  static String messageReaction(String msgId) => '/messages/messages/$msgId/reactions';
+  static String deleteMessage(String msgId) => '/messages/messages/$msgId';
 
-  // Groups
   static const String groups = '/groups';
-  static String groupById(String id) => '/groups/$id';
-  static String groupMessages(String id) => '/groups/$id/messages';
-  static String groupMembers(String id) => '/groups/$id/members';
+  static String joinGroup(String id) => '/groups/$id/join';
+  static String leaveGroup(String id) => '/groups/$id/leave';
 
-  // Courses
   static const String courses = '/courses';
-  static String courseById(String id) => '/courses/$id';
-  static String courseLessons(String id) => '/courses/$id/lessons';
+  static String enrollCourse(String id) => '/courses/$id/enroll';
 
-  // Tickets
   static const String tickets = '/tickets';
   static String ticketById(String id) => '/tickets/$id';
-  static String assignTicket(String id) => '/tickets/$id/assign';
-  static String closeTicket(String id) => '/tickets/$id/close';
+  static String ticketReplies(String id) => '/tickets/$id/replies';
+  static String updateTicket(String id) => '/tickets/$id';
 
-  // Notifications
   static const String notifications = '/notifications';
+  static const String notificationsUnread = '/notifications/unread-count';
   static const String markAllRead = '/notifications/read-all';
   static String markRead(String id) => '/notifications/$id/read';
 
-  // Admin
-  static const String adminStats = '/admin/stats';
+  static const String adminDashboard = '/admin/dashboard';
   static const String adminUsers = '/admin/users';
-  static const String adminLogs = '/admin/logs';
-  static const String adminSettings = '/admin/settings';
+  static String adminUserById(String id) => '/admin/users/$id';
+  static const String adminPendingUsers = '/admin/pending-users';
+  static String approveUser(String id) => '/admin/users/$id/approve';
+  static String rejectUser(String id) => '/admin/users/$id/reject';
+  static const String adminActivity = '/admin/activity';
 }

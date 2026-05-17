@@ -2,10 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 
-// ─── Repository Provider ──────────────────────────────────────
 final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepositoryImpl());
 
-// ─── Auth State ───────────────────────────────────────────────
 class AuthState {
   final UserModel? user;
   final bool isLoading;
@@ -14,7 +12,8 @@ class AuthState {
 
   const AuthState({this.user, this.isLoading = false, this.error, this.isAuthenticated = false});
 
-  AuthState copyWith({UserModel? user, bool? isLoading, String? error, bool? isAuthenticated}) => AuthState(
+  AuthState copyWith({UserModel? user, bool? isLoading, String? error, bool? isAuthenticated}) =>
+      AuthState(
         user: user ?? this.user,
         isLoading: isLoading ?? this.isLoading,
         error: error,
@@ -22,7 +21,6 @@ class AuthState {
       );
 }
 
-// ─── Auth Notifier ────────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
 
@@ -32,9 +30,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _checkAuth() async {
     state = state.copyWith(isLoading: true);
-    final result = await _repository.isAuthenticated();
-    result.fold(
-      (_) => state = const AuthState(),
+    final isAuthResult = await _repository.isAuthenticated();
+    await isAuthResult.fold(
+      (_) async => state = const AuthState(),
       (isAuth) async {
         if (isAuth) {
           final userResult = await _repository.getCurrentUser();
@@ -64,10 +62,56 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  Future<bool> adminLogin(String username, String password) async {
+    state = state.copyWith(isLoading: true, error: null);
+    final result = await _repository.adminLogin(username, password);
+    return result.fold(
+      (failure) {
+        state = state.copyWith(isLoading: false, error: failure.message);
+        return false;
+      },
+      (user) {
+        state = AuthState(user: user, isAuthenticated: true);
+        return true;
+      },
+    );
+  }
+
+  Future<String?> register({
+    required String username,
+    required String displayName,
+    required String password,
+    required String academicId,
+    required String role,
+    String? email,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    final result = await _repository.register(
+      username: username,
+      displayName: displayName,
+      password: password,
+      academicId: academicId,
+      role: role,
+      email: email,
+    );
+    return result.fold(
+      (failure) {
+        state = state.copyWith(isLoading: false, error: failure.message);
+        return null;
+      },
+      (message) {
+        state = state.copyWith(isLoading: false);
+        return message;
+      },
+    );
+  }
+
   Future<void> logout() async {
     await _repository.logout();
     state = const AuthState();
   }
+
+  void clearError() => state = state.copyWith(error: null);
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
