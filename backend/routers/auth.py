@@ -4,7 +4,7 @@ import asyncpg
 
 from ..database import get_pool
 from ..auth import verify_password, hash_password, create_access_token, hash_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from ..models import LoginRequest, RegisterRequest, TokenResponse, AdminLoginRequest, UserResponse
+from ..models import LoginRequest, RegisterRequest, TokenResponse, RegisterResponse, AdminLoginRequest, UserResponse
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -81,7 +81,7 @@ async def admin_login(body: AdminLoginRequest, request: Request):
         return await _do_login(conn, body.username, body.password, require_role=ADMIN_ROLES)
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post("/register", response_model=RegisterResponse)
 async def register(body: RegisterRequest):
     if body.role not in ALLOWED_ROLES:
         raise HTTPException(status_code=400, detail="دور غير مسموح به")
@@ -100,29 +100,28 @@ async def register(body: RegisterRequest):
 
         status_val = "active" if body.role == "sheikh" else "pending"
 
-        user = await conn.fetchrow(
-            """INSERT INTO users (username, display_name, email, password_hash, academic_id, role, status, gender)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *""",
-            body.username, body.display_name, body.email, pw_hash,
-            body.academic_id, body.role, status_val, gender,
-        )
+        try:
+            await conn.fetchrow(
+                """INSERT INTO users (username, display_name, email, password_hash, academic_id, role, status, gender)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id""",
+                body.username, body.display_name, body.email, pw_hash,
+                body.academic_id, body.role, status_val, gender,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"فشل إنشاء الحساب: {str(e)}")
 
         if status_val == "pending":
-            raise HTTPException(
-                status_code=202,
-                detail="تم تسجيل طلبك بنجاح. سيتم مراجعة حسابك من قِبَل الإدارة وإشعارك عند التفعيل.",
+            return RegisterResponse(
+                success=True,
+                pending=True,
+                message="تم تسجيل طلبك بنجاح. سيتم مراجعة حسابك من قِبَل الإدارة وإشعارك عند التفعيل.",
             )
 
-        token = create_access_token({"sub": str(user["id"]), "role": user["role"]})
-        token_hash = hash_token(token)
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
-        await conn.execute(
-            "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1,$2,$3)",
-            user["id"], token_hash, expires_at,
+        return RegisterResponse(
+            success=True,
+            pending=False,
+            message="تم إنشاء حسابك بنجاح. يمكنك تسجيل الدخول الآن.",
         )
-
-        return TokenResponse(access_token=token, user=row_to_user(dict(user)))
 
 
 @router.post("/logout")

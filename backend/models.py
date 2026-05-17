@@ -24,6 +24,11 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
 
+class RegisterResponse(BaseModel):
+    success: bool = True
+    pending: bool
+    message: str
+
 class AdminLoginRequest(BaseModel):
     username: str
     password: str

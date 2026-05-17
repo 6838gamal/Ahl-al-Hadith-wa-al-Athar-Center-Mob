@@ -73,7 +73,7 @@ class AuthRepositoryImpl implements AuthRepository {
     String? email,
   }) async {
     try {
-      await _api.post(ApiEndpoints.register, data: {
+      final res = await _api.post(ApiEndpoints.register, data: {
         'username': username,
         'display_name': displayName,
         'password': password,
@@ -81,14 +81,16 @@ class AuthRepositoryImpl implements AuthRepository {
         'role': role,
         if (email != null) 'email': email,
       });
+      final data = res.data;
+      if (data is Map) {
+        final msg = data['message']?.toString();
+        if (msg != null && msg.isNotEmpty) return Right(msg);
+      }
       return const Right('تم إرسال طلب التسجيل بنجاح وسيتم مراجعته من قِبل الإدارة');
     } on DioException catch (e) {
-      if (e.response?.statusCode == 202) {
-        return Right(e.response?.data['detail'] ?? 'تم إرسال طلب التسجيل');
-      }
-      return Left(AuthFailure(message: _extractMessage(e, 'فشل في إنشاء الحساب')));
+      return Left(AuthFailure(message: _extractMessage(e, 'فشل في إنشاء الحساب. تحقق من البيانات وحاول مجدداً')));
     } catch (e) {
-      return Left(ServerFailure(message: 'خطأ غير متوقع: $e'));
+      return Left(ServerFailure(message: 'خطأ غير متوقع أثناء التسجيل'));
     }
   }
 
