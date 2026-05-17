@@ -261,41 +261,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ],
           const SizedBox(height: 24),
           AppButton(label: 'تسجيل الدخول', isLoading: authState.isLoading, onPressed: _login, icon: Icons.login_rounded),
-          const SizedBox(height: 12),
-          _buildDemoAccounts(),
         ],
       ),
-    );
-  }
-
-  Widget _buildDemoAccounts() {
-    final demos = [
-      ('admin', 'مدير النظام'),
-      ('sheikh_ibrahim', 'شيخ'),
-      ('student_ali', 'طالب'),
-      ('student_sara', 'طالبة'),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('حسابات تجريبية (كلمة المرور: 1234):', style: AppTextStyles.caption),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: demos.map((demo) => GestureDetector(
-            onTap: () {
-              _usernameController.text = demo.$1;
-              _passwordController.text = '1234';
-            },
-            child: Chip(
-              label: Text('${demo.$2} (${demo.$1})', style: AppTextStyles.caption),
-              backgroundColor: AppColors.primary.withOpacity(0.08),
-              side: BorderSide.none,
-            ),
-          )).toList(),
-        ),
-      ],
     );
   }
 

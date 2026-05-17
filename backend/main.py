@@ -4,12 +4,20 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from .database import get_pool, close_pool
 from .routers import auth, users, messages, groups, tickets, notifications, courses, admin
 
 WEB_DIR = Path(__file__).parent.parent / "build" / "web"
+
+NO_CACHE_FILES = {
+    "index.html",
+    "flutter_bootstrap.js",
+    "flutter_service_worker.js",
+    "main.dart.js",
+    "version.json",
+}
 
 
 @asynccontextmanager
@@ -46,7 +54,25 @@ async def health():
 
 def _serve_file(path: Path) -> FileResponse:
     mime, _ = mimetypes.guess_type(str(path))
-    return FileResponse(str(path), media_type=mime or "application/octet-stream")
+    filename = path.name
+    headers = {}
+    if filename in NO_CACHE_FILES:
+        headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        headers["Pragma"] = "no-cache"
+        headers["Expires"] = "0"
+    return FileResponse(
+        str(path),
+        media_type=mime or "application/octet-stream",
+        headers=headers,
+    )
+
+
+@app.get("/")
+async def serve_root():
+    index = WEB_DIR / "index.html"
+    if index.exists():
+        return _serve_file(index)
+    return JSONResponse({"error": "Flutter build not found"}, status_code=404)
 
 
 @app.get("/{full_path:path}")
@@ -59,13 +85,5 @@ async def serve_flutter(request: Request, full_path: str):
             return _serve_file(candidate)
         index = WEB_DIR / "index.html"
         if index.exists():
-            return FileResponse(str(index), media_type="text/html")
+            return _serve_file(index)
     return JSONResponse({"error": "not found"}, status_code=404)
-
-
-@app.get("/")
-async def serve_root():
-    index = WEB_DIR / "index.html"
-    if index.exists():
-        return FileResponse(str(index), media_type="text/html")
-    return JSONResponse({"error": "Flutter build not found"}, status_code=404)

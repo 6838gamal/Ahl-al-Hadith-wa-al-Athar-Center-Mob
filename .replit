@@ -39,3 +39,8 @@ externalPort = 80
 deploymentTarget = "static"
 build = ["flutter", "build", "web", "--release"]
 publicDir = "build/web"
+
+[userenv]
+
+[userenv.shared]
+RENDER_DATABASE_URL = "postgresql://ahl_al_hadith_wa_al_athar_center_mob_db_user:lp1AFjMKqwDM9Egg0123hXBHCsUUP2oz@dpg-d84uief7f7vs73abps5g-a.ohio-postgres.render.com/ahl_al_hadith_wa_al_athar_center_mob_db"
