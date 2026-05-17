@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import '../../errors/exceptions.dart';
 
 class ErrorInterceptor extends Interceptor {
   @override
@@ -8,25 +7,29 @@ class ErrorInterceptor extends Interceptor {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
-        throw NetworkException(message: 'انتهت مهلة الاتصال');
+        handler.reject(
+          DioException(
+            requestOptions: err.requestOptions,
+            response: err.response,
+            type: err.type,
+            error: err.error,
+            message: 'انتهت مهلة الاتصال. تحقق من اتصالك بالإنترنت.',
+          ),
+        );
+        return;
       case DioExceptionType.connectionError:
-        throw const NetworkException();
-      case DioExceptionType.badResponse:
-        final statusCode = err.response?.statusCode;
-        final message = _extractMessage(err.response?.data);
-        if (statusCode == 401) {
-          throw AuthException(message: message ?? 'جلستك انتهت، يرجى تسجيل الدخول مجدداً', statusCode: statusCode);
-        }
-        throw ServerException(message: message ?? 'حدث خطأ في الخادم', statusCode: statusCode);
+        handler.reject(
+          DioException(
+            requestOptions: err.requestOptions,
+            response: err.response,
+            type: err.type,
+            error: err.error,
+            message: 'لا يوجد اتصال بالإنترنت أو تعذّر الوصول للخادم.',
+          ),
+        );
+        return;
       default:
-        throw ServerException(message: err.message ?? 'حدث خطأ غير متوقع');
+        handler.next(err);
     }
-  }
-
-  String? _extractMessage(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      return data['detail'] as String? ?? data['message'] as String?;
-    }
-    return null;
   }
 }

@@ -802,7 +802,6 @@ file:///home/runner/workspace/lib/config/theme/app_colors.dart
 file:///home/runner/workspace/lib/config/theme/app_text_styles.dart
 file:///home/runner/workspace/lib/config/theme/app_theme.dart
 file:///home/runner/workspace/lib/core/constants/app_constants.dart
-file:///home/runner/workspace/lib/core/errors/exceptions.dart
 file:///home/runner/workspace/lib/core/errors/failures.dart
 file:///home/runner/workspace/lib/core/extensions/datetime_extensions.dart
 file:///home/runner/workspace/lib/core/networking/api_client.dart
