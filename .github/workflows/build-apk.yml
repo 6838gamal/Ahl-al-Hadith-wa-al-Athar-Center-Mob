@@ -1,0 +1,45 @@
+name: Build Flutter APK (Release)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. تحميل الكود من الريبو
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. إعداد Java (ضروري للأندرويد)
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. إعداد Flutter (Stable لتجنب الأخطاء)
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # 4. جلب الحزم
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. فحص سريع للتأكد من البيئة
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      # 6. بناء APK (Release)
+      - name: Build APK
+        run: flutter build apk --release
+
+      # 7. رفع ملف APK النهائي
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
