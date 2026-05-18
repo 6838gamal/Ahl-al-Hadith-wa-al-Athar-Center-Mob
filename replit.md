@@ -33,34 +33,36 @@ flutter build web --release
 python3 serve.py
 ```
 
-## Deployment Options
+## Deployment on Render (RECOMMENDED)
 
-### Option A — Full Stack on Render (RECOMMENDED)
-Deploy frontend + backend together as one service.
+> **Important:** `build/web` is committed to the repo intentionally.
+> Render uses Python runtime which has no Flutter — so we pre-build locally and push.
 
-1. Connect your GitHub repo to [Render](https://render.com)
-2. Create a **Web Service** with:
-   - **Runtime:** Python
-   - **Build command:** `pip install -r requirements.txt && flutter pub get && flutter build web --release`
+### Steps
+
+1. Push repo to GitHub (including `build/web` folder)
+2. Connect repo to [Render](https://render.com) → New Web Service
+3. Render reads `render.yaml` automatically, which sets:
+   - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `python3 serve.py`
-3. Set environment variables in Render dashboard:
-   - `RENDER_DATABASE_URL` → your Render PostgreSQL connection string
-   - `SECRET_KEY` → any random long string (e.g. generate with `openssl rand -hex 32`)
-4. Deploy — get a `xxx.onrender.com` URL that works immediately
+   - **Port:** `10000`
+4. In Render dashboard → Environment → add:
+   - `RENDER_DATABASE_URL` → your PostgreSQL connection string
+   - `SECRET_KEY` → any long random string
+5. Deploy → works immediately at `https://xxx.onrender.com`
 
-### Option B — Flutter on Netlify + Backend on Render
-Deploy them separately (requires configuring the backend URL).
+### Updating the frontend after changes
 
-**Step 1** — Deploy the backend on Render (Web Service):
-- Build: `pip install -r requirements.txt`
-- Start: `python3 serve.py`
-- Set: `RENDER_DATABASE_URL`, `SECRET_KEY`, `PORT=10000`
-- Note your backend URL (e.g. `https://my-backend.onrender.com`)
+Whenever you change Flutter code, rebuild locally then push:
 
-**Step 2** — Deploy Flutter on Netlify:
-- Edit `netlify.toml`: replace `REPLACE_WITH_YOUR_BACKEND_URL` with your Render backend URL
-- Build command becomes: `flutter pub get && flutter build web --release --dart-define=API_BASE_URL=https://my-backend.onrender.com/api`
-- Publish directory: `build/web`
+```bash
+flutter pub get && flutter build web --release
+git add build/web
+git commit -m "rebuild web"
+git push
+```
+
+Render will auto-deploy on push.
 
 ## Architecture
 

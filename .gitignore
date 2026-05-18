@@ -1,0 +1,38 @@
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+pubspec.lock
+
+# Build — keep build/web in git so Render can deploy without Flutter
+build/android/
+build/ios/
+build/linux/
+build/macos/
+build/windows/
+# build/web is intentionally NOT ignored — Render needs it
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+*.egg
+.env
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
