@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ahl-al-hadith-center
+    runtime: python
+    region: ohio
+    plan: free
+    buildCommand: pip install -r requirements.txt && flutter pub get && flutter build web --release
+    startCommand: python3 serve.py
+    envVars:
+      - key: RENDER_DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PORT
+        value: 5000

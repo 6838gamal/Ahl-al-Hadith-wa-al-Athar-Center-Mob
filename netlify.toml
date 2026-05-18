@@ -1,0 +1,8 @@
+[build]
+  command = "flutter pub get && flutter build web --release --dart-define=API_BASE_URL=https://REPLACE_WITH_YOUR_BACKEND_URL/api"
+  publish = "build/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

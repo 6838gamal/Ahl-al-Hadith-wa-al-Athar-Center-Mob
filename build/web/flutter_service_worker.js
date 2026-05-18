@@ -21,7 +21,7 @@ const RESOURCES = {"assets/fonts/MaterialIcons-Regular.otf": "09e834bdf48b67537f
 "canvaskit/skwasm.js.symbols": "9fe690d47b904d72c7d020bd303adf16",
 "canvaskit/skwasm.wasm": "1c93738510f202d9ff44d36a4760126b",
 "flutter.js": "83d881c1dbb6d6bcd6b42e274605b69c",
-"flutter_bootstrap.js": "603035c0da073d7ea6f8b60d0ad5b29d",
+"flutter_bootstrap.js": "611af567895c3c61d6e0bea00aea2f68",
 "icons/Icon-192.png": "ac9a721a12bbc803b44f645561ecb1e1",
 "icons/Icon-512.png": "96e752610906ba2a93c65f8abe1645f1",
 "icons/Icon-maskable-192.png": "c457ef57daa1d16f64b27b786ec2ea3c",

@@ -1,48 +1,31 @@
 # مركز أهل الحديث والأثر
 
-A full-featured Flutter web application — Islamic educational center platform.
+A full-stack Islamic educational center platform — Flutter Web frontend + FastAPI backend + PostgreSQL (Render).
 
 ## Project Overview
 
-A production-ready MVP for "مركز أهل الحديث والأثر" (Ahl al-Hadith wa al-Athar Center). Built with Clean Architecture, Feature-First structure, and a Mock Backend layer designed to be swapped with a real FastAPI backend with zero UI changes.
+Production-ready app for "مركز أهل الحديث والأثر". Built with Clean Architecture, Feature-First structure, and a FastAPI backend connected to Render PostgreSQL.
 
 ## Tech Stack
 
-- **Framework:** Flutter 3.32.0 (Web)
+- **Frontend:** Flutter 3.32.0 (Web)
+- **Backend:** FastAPI + asyncpg (Python)
+- **Database:** PostgreSQL on Render
 - **State Management:** Riverpod
 - **Navigation:** GoRouter
 - **Networking:** Dio + Interceptors (Auth, Error, Logging)
-- **Local Storage:** Hive + Flutter Secure Storage
-- **Audio:** just_audio + audio_waveforms
+- **Local Storage:** Flutter Secure Storage
 - **Architecture:** Clean Architecture + Feature-First
-- **Database Schema:** PostgreSQL (full schema in `database/`)
 
-## Project Structure
+## Admin Account
 
-```
-lib/
-├── core/           # Networking, storage, errors, extensions
-├── shared/         # Models, widgets, shared screens
-├── features/       # auth, messaging, notifications, tickets
-├── admin_panel/    # dashboard, users, analytics
-├── config/         # Theme, colors, environment config
-├── routes/         # GoRouter + shell scaffold
-└── main.dart
+| Username | Password | Role |
+|---|---|---|
+| admin | admin | مدير النظام |
 
-database/
-├── schema/         # Full PostgreSQL schema + triggers
-└── seeds/          # Development seed data
-```
+To access the admin panel: double-tap the logo on the login screen → admin login dialog.
 
-## Demo Accounts (Password: 1234)
-
-| Username | Role |
-|---|---|
-| admin | مدير النظام (Admin) |
-| sheikh_ibrahim | شيخ (Sheikh) |
-| student_ali | طالب (Male Student) |
-
-## Running Locally
+## Running Locally (Replit)
 
 ```bash
 flutter pub get
@@ -50,21 +33,62 @@ flutter build web --release
 python3 serve.py
 ```
 
-## Deployment
+## Deployment Options
 
-Static deployment:
-- **Build command:** `flutter build web --release`
-- **Public directory:** `build/web`
+### Option A — Full Stack on Render (RECOMMENDED)
+Deploy frontend + backend together as one service.
 
-## Architecture: Mock → FastAPI Ready
+1. Connect your GitHub repo to [Render](https://render.com)
+2. Create a **Web Service** with:
+   - **Runtime:** Python
+   - **Build command:** `pip install -r requirements.txt && flutter pub get && flutter build web --release`
+   - **Start command:** `python3 serve.py`
+3. Set environment variables in Render dashboard:
+   - `RENDER_DATABASE_URL` → your Render PostgreSQL connection string
+   - `SECRET_KEY` → any random long string (e.g. generate with `openssl rand -hex 32`)
+4. Deploy — get a `xxx.onrender.com` URL that works immediately
 
-The API layer is fully decoupled. To add FastAPI later:
-1. Replace `MockDataService` calls in repositories with `ApiClient` HTTP calls
-2. Zero Flutter UI changes needed
+### Option B — Flutter on Netlify + Backend on Render
+Deploy them separately (requires configuring the backend URL).
+
+**Step 1** — Deploy the backend on Render (Web Service):
+- Build: `pip install -r requirements.txt`
+- Start: `python3 serve.py`
+- Set: `RENDER_DATABASE_URL`, `SECRET_KEY`, `PORT=10000`
+- Note your backend URL (e.g. `https://my-backend.onrender.com`)
+
+**Step 2** — Deploy Flutter on Netlify:
+- Edit `netlify.toml`: replace `REPLACE_WITH_YOUR_BACKEND_URL` with your Render backend URL
+- Build command becomes: `flutter pub get && flutter build web --release --dart-define=API_BASE_URL=https://my-backend.onrender.com/api`
+- Publish directory: `build/web`
+
+## Architecture
+
+```
+serve.py              ← Entry point (reads PORT from env)
+backend/
+├── main.py           ← FastAPI app + CORS + static file serving
+├── database.py       ← asyncpg pool (uses RENDER_DATABASE_URL)
+├── auth.py           ← JWT token logic
+├── deps.py           ← Auth dependencies
+├── models.py         ← Pydantic request/response models
+└── routers/          ← auth, users, messages, tickets, etc.
+
+lib/
+├── core/             ← Networking (Dio), storage, errors
+├── features/         ← auth, messaging, notifications, tickets
+├── admin_panel/      ← dashboard, users, analytics
+├── config/           ← Theme, colors, AppEnv (API_BASE_URL)
+└── routes/           ← GoRouter + shell scaffold
+
+requirements.txt      ← Python dependencies for Render
+render.yaml           ← Render one-click deployment config
+netlify.toml          ← Netlify build config (Option B)
+```
 
 ## User Preferences
 
 - Keep Flutter web as the primary target platform
 - Clean Architecture + Feature-First folder structure
 - RTL Arabic UI with Islamic green color scheme
-- Mock backend layer ready for FastAPI replacement
+- FastAPI backend connected to Render PostgreSQL
