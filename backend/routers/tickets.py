@@ -10,6 +10,13 @@ from ..deps import get_current_user
 
 router = APIRouter(prefix="/api/tickets", tags=["tickets"])
 
+CATEGORY_LABEL = {
+    "question": "سؤال",
+    "fatwa": "فتوى",
+    "complaint": "شكوى",
+    "suggestion": "اقتراح",
+}
+
 
 def row_to_user(row) -> Optional[UserResponse]:
     if not row:
@@ -47,6 +54,7 @@ async def _build_ticket(conn, row) -> TicketResponse:
         submitter_id=str(d["submitter_id"]), submitter=submitter,
         assignee_id=str(d["assignee_id"]) if d.get("assignee_id") else None,
         assignee=assignee, status=d["status"], priority=d["priority"],
+        ticket_category=d.get("ticket_category") or "question",
         replies=replies, resolved_at=d.get("resolved_at"),
         created_at=d["created_at"], updated_at=d["updated_at"],
     )
@@ -82,17 +90,19 @@ async def list_tickets(
 
 @router.post("", response_model=TicketResponse)
 async def create_ticket(body: CreateTicketRequest, user: dict = Depends(get_current_user)):
+    category = body.ticket_category or "question"
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO tickets (title, body, submitter_id, priority)
-               VALUES ($1,$2,$3,$4::ticket_priority) RETURNING *""",
-            body.title, body.body, user["id"], body.priority,
+            """INSERT INTO tickets (title, body, submitter_id, priority, ticket_category)
+               VALUES ($1,$2,$3,$4::ticket_priority,$5) RETURNING *""",
+            body.title, body.body, user["id"], body.priority, category,
         )
+        category_label = CATEGORY_LABEL.get(category, "استفسار")
         await conn.execute(
             """INSERT INTO notifications (user_id, type, title, body)
-               SELECT id, 'ticket', 'تذكرة جديدة', $1 FROM users WHERE role IN ('admin','moderator')""",
-            f"تذكرة جديدة: {body.title}",
+               SELECT id, 'ticket', 'استفسار جديد', $1 FROM users WHERE role IN ('admin','moderator')""",
+            f"{category_label} جديد: {body.title}",
         )
         return await _build_ticket(conn, row)
 
@@ -105,7 +115,7 @@ async def get_ticket(ticket_id: str, user: dict = Depends(get_current_user)):
             "SELECT * FROM tickets WHERE id=$1 AND deleted_at IS NULL", ticket_id
         )
         if not row:
-            raise HTTPException(404, "التذكرة غير موجودة")
+            raise HTTPException(404, "الاستفسار غير موجود")
 
         if user["role"] not in ("admin", "moderator", "sheikh"):
             if str(row["submitter_id"]) != str(user["id"]):
@@ -160,7 +170,7 @@ async def add_reply(
     async with pool.acquire() as conn:
         ticket = await conn.fetchrow("SELECT * FROM tickets WHERE id=$1", ticket_id)
         if not ticket:
-            raise HTTPException(404, "التذكرة غير موجودة")
+            raise HTTPException(404, "الاستفسار غير موجود")
 
         if user["role"] not in ("admin", "moderator", "sheikh"):
             if str(ticket["submitter_id"]) != str(user["id"]):
@@ -182,7 +192,7 @@ async def add_reply(
         if str(submitter_id) != str(user["id"]):
             await conn.execute(
                 """INSERT INTO notifications (user_id, type, title, body, action_url)
-                   VALUES ($1,'ticket','رد جديد على تذكرتك',$2,$3)""",
+                   VALUES ($1,'ticket','رد جديد على استفسارك',$2,$3)""",
                 submitter_id, f"تم الرد على: {ticket['title']}", f"/tickets/{ticket_id}",
             )
 

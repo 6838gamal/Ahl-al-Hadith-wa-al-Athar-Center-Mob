@@ -183,15 +183,41 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> with Single
         child: AlertDialog(
           title: Text('تعديل: ${user.effectiveName}'),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Gender & Academic ID info row (read-only)
+            Container(
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
+              child: Row(children: [
+                Icon(user.gender == 'female' ? Icons.female_rounded : Icons.male_rounded,
+                    color: user.gender == 'female' ? Colors.pink : AppColors.primary, size: 18),
+                const SizedBox(width: 6),
+                Text(user.gender == 'female' ? 'أنثى' : 'ذكر', style: AppTextStyles.caption),
+                const SizedBox(width: 16),
+                const Icon(Icons.numbers_rounded, color: AppColors.textMuted, size: 16),
+                const SizedBox(width: 4),
+                Text(user.academicId, style: AppTextStyles.caption),
+              ]),
+            ),
             DropdownButtonFormField<String>(
               value: selectedStatus, decoration: const InputDecoration(labelText: 'الحالة', border: OutlineInputBorder()),
-              items: const [DropdownMenuItem(value: 'active', child: Text('نشط')), DropdownMenuItem(value: 'pending', child: Text('معلق')), DropdownMenuItem(value: 'suspended', child: Text('موقوف')), DropdownMenuItem(value: 'banned', child: Text('محظور'))],
+              items: const [
+                DropdownMenuItem(value: 'active', child: Text('نشط')),
+                DropdownMenuItem(value: 'pending', child: Text('معلق')),
+                DropdownMenuItem(value: 'suspended', child: Text('موقوف')),
+                DropdownMenuItem(value: 'banned', child: Text('محظور')),
+              ],
               onChanged: (v) => setD(() => selectedStatus = v!),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: selectedRole, decoration: const InputDecoration(labelText: 'الدور', border: OutlineInputBorder()),
-              items: const [DropdownMenuItem(value: 'male_student', child: Text('طالب')), DropdownMenuItem(value: 'female_student', child: Text('طالبة')), DropdownMenuItem(value: 'sheikh', child: Text('شيخ')), DropdownMenuItem(value: 'moderator', child: Text('مشرف'))],
+              value: selectedRole, decoration: const InputDecoration(labelText: 'الرتبة', border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'male_student', child: Text('طالب')),
+                DropdownMenuItem(value: 'female_student', child: Text('طالبة')),
+                DropdownMenuItem(value: 'sheikh', child: Text('شيخ')),
+                DropdownMenuItem(value: 'moderator', child: Text('مشرف')),
+              ],
               onChanged: (v) => setD(() => selectedRole = v!),
             ),
           ]),
@@ -201,7 +227,11 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> with Single
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               onPressed: () async {
                 Navigator.pop(ctx);
-                await ref.read(adminUsersProvider.notifier).updateUser(user.id, {'status': selectedStatus, 'role': selectedRole});
+                final ok = await ref.read(adminUsersProvider.notifier).updateUser(user.id, {'status': selectedStatus, 'role': selectedRole});
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(ok ? 'تم الحفظ بنجاح' : 'فشل في الحفظ'),
+                  backgroundColor: ok ? AppColors.success : AppColors.error,
+                ));
               },
               child: const Text('حفظ', style: TextStyle(color: Colors.white)),
             ),
@@ -254,6 +284,7 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isFemale = user.gender == 'female';
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
@@ -264,7 +295,24 @@ class _UserCard extends StatelessWidget {
           UserAvatar(name: user.effectiveName, avatarUrl: user.avatarUrl, size: 48, showOnline: user.isOnline, isOnline: user.isOnline),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(user.effectiveName, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
+            Row(children: [
+              Expanded(child: Text(user.effectiveName, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600))),
+              // Gender badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: (isFemale ? Colors.pink : AppColors.primary).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(isFemale ? Icons.female_rounded : Icons.male_rounded,
+                      size: 12, color: isFemale ? Colors.pink : AppColors.primary),
+                  const SizedBox(width: 2),
+                  Text(isFemale ? 'أنثى' : 'ذكر',
+                      style: TextStyle(fontSize: 10, color: isFemale ? Colors.pink : AppColors.primary, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ]),
             Text('@${user.username} · ${user.academicId}', style: AppTextStyles.caption),
             const SizedBox(height: 4),
             Row(children: [

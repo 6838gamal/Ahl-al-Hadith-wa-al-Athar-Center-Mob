@@ -10,6 +10,7 @@ class ApiEndpoints {
   static const String users = '/users';
   static String userById(String id) => '/users/$id';
   static const String updateMe = '/users/me';
+  static const String changePassword = '/users/me/password';
 
   static const String conversations = '/messages/conversations';
   static String createConversation = '/messages/conversations';

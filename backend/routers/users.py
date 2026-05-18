@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 
 from ..database import get_pool
-from ..models import UserResponse, UserUpdateRequest
+from ..models import UserResponse, UserUpdateRequest, ChangePasswordRequest
 from ..deps import get_current_user
+from ..auth import verify_password, hash_password
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -75,6 +76,20 @@ async def update_me(body: UserUpdateRequest, user: dict = Depends(get_current_us
             f"UPDATE users SET {set_clause} WHERE id=${len(params)} RETURNING *", *params
         )
         return row_to_user(row)
+
+
+@router.put("/me/password")
+async def change_password(body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        fresh = await conn.fetchrow("SELECT password_hash FROM users WHERE id=$1", user["id"])
+        if not fresh or not verify_password(body.current_password, fresh["password_hash"]):
+            raise HTTPException(status_code=400, detail="كلمة المرور الحالية غير صحيحة")
+        new_hash = hash_password(body.new_password)
+        await conn.execute("UPDATE users SET password_hash=$1 WHERE id=$2", new_hash, user["id"])
+    return {"message": "تم تغيير كلمة المرور بنجاح"}
 
 
 @router.get("/{user_id}", response_model=UserResponse)

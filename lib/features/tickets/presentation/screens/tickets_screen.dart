@@ -7,12 +7,36 @@ import '../../../../core/networking/api_endpoints.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/extensions/datetime_extensions.dart';
 
+// ─── Category helpers ──────────────────────────────────────────
+
+const _categoryLabels = {
+  'question': 'سؤال',
+  'fatwa': 'فتوى',
+  'complaint': 'شكوى',
+  'suggestion': 'اقتراح',
+};
+
+const _categoryIcons = {
+  'question': Icons.help_outline_rounded,
+  'fatwa': Icons.menu_book_rounded,
+  'complaint': Icons.report_outlined,
+  'suggestion': Icons.lightbulb_outline_rounded,
+};
+
+const _categoryColors = {
+  'question': AppColors.primary,
+  'fatwa': AppColors.success,
+  'complaint': AppColors.error,
+  'suggestion': AppColors.warning,
+};
+
 // ─── Models ───────────────────────────────────────────────────
 
 class TicketData {
   final String id, title, body, submitterId;
   final String? submitterName, assigneeId, assigneeName;
   final String status, priority;
+  final String ticketCategory;
   final List<TicketReplyData> replies;
   final DateTime createdAt, updatedAt;
   final DateTime? resolvedAt;
@@ -20,7 +44,8 @@ class TicketData {
   const TicketData({
     required this.id, required this.title, required this.body,
     required this.submitterId, this.submitterName, this.assigneeId, this.assigneeName,
-    required this.status, required this.priority, this.replies = const [],
+    required this.status, required this.priority, this.ticketCategory = 'question',
+    this.replies = const [],
     required this.createdAt, required this.updatedAt, this.resolvedAt,
   });
 
@@ -31,6 +56,7 @@ class TicketData {
     assigneeId: j['assignee_id'] as String?,
     assigneeName: (j['assignee'] as Map?)?['display_name'] as String? ?? (j['assignee'] as Map?)?['username'] as String?,
     status: j['status'] as String, priority: j['priority'] as String,
+    ticketCategory: j['ticket_category'] as String? ?? 'question',
     replies: (j['replies'] as List? ?? []).map((r) => TicketReplyData.fromJson(r as Map<String, dynamic>)).toList(),
     createdAt: DateTime.parse(j['created_at'] as String),
     updatedAt: DateTime.parse(j['updated_at'] as String),
@@ -72,9 +98,9 @@ class TicketsNotifier extends StateNotifier<AsyncValue<List<TicketData>>> {
     } catch (e, st) { state = AsyncValue.error(e, st); }
   }
 
-  Future<bool> createTicket(String title, String body, String priority) async {
+  Future<bool> createTicket(String title, String body, String priority, String category) async {
     try {
-      final res = await _api.post(ApiEndpoints.tickets, data: {'title': title, 'body': body, 'priority': priority});
+      final res = await _api.post(ApiEndpoints.tickets, data: {'title': title, 'body': body, 'priority': priority, 'ticket_category': category});
       final newTicket = TicketData.fromJson(res.data as Map<String, dynamic>);
       state.whenData((list) => state = AsyncValue.data([newTicket, ...list]));
       return true;
@@ -113,7 +139,7 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> with SingleTicker
     final ticketsAsync = ref.watch(ticketsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('صندوق التذاكر'),
+        title: const Text('الاستفسارات والدعم'),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white, unselectedLabelColor: Colors.white70,
@@ -143,7 +169,7 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> with SingleTicker
         onPressed: () => _showNewTicketDialog(context),
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('تذكرة جديدة', style: TextStyle(color: Colors.white)),
+        label: const Text('استفسار جديد', style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -152,6 +178,7 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> with SingleTicker
     final titleCtrl = TextEditingController();
     final bodyCtrl = TextEditingController();
     String priority = 'medium';
+    String category = 'question';
     bool loading = false;
     showModalBottomSheet(
       context: context,
@@ -161,36 +188,90 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> with SingleTicker
         textDirection: TextDirection.rtl,
         child: Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('تذكرة جديدة', style: AppTextStyles.h3),
-            const SizedBox(height: 16),
-            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'الموضوع', border: OutlineInputBorder())),
-            const SizedBox(height: 12),
-            TextField(controller: bodyCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'التفاصيل', border: OutlineInputBorder())),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: priority,
-              decoration: const InputDecoration(labelText: 'الأولوية', border: OutlineInputBorder()),
-              items: const [DropdownMenuItem(value: 'low', child: Text('منخفضة')), DropdownMenuItem(value: 'medium', child: Text('متوسطة')), DropdownMenuItem(value: 'high', child: Text('عالية')), DropdownMenuItem(value: 'urgent', child: Text('عاجلة'))],
-              onChanged: (v) => setState(() => priority = v!),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 14)),
-              onPressed: loading ? null : () async {
-                if (titleCtrl.text.isEmpty || bodyCtrl.text.isEmpty) return;
-                setState(() => loading = true);
-                final ok = await ref.read(ticketsProvider.notifier).createTicket(titleCtrl.text.trim(), bodyCtrl.text.trim(), priority);
-                if (!mounted) return;
-                Navigator.pop(ctx);
-                if (ok) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال التذكرة بنجاح'), backgroundColor: AppColors.success));
-              },
-              child: loading ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('إرسال', style: TextStyle(color: Colors.white)),
-            ),
-            const SizedBox(height: 16),
-          ]),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('استفسار جديد', style: AppTextStyles.h3),
+              const SizedBox(height: 4),
+              Text('اختر نوع الاستفسار وأدخل التفاصيل', style: AppTextStyles.caption),
+              const SizedBox(height: 16),
+              // Category selector
+              _CategorySelector(
+                selected: category,
+                onChanged: (v) => setState(() => category = v),
+              ),
+              const SizedBox(height: 12),
+              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'الموضوع', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextField(controller: bodyCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'التفاصيل', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: priority,
+                decoration: const InputDecoration(labelText: 'أهمية الاستفسار', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: 'low', child: Text('منخفضة')),
+                  DropdownMenuItem(value: 'medium', child: Text('متوسطة')),
+                  DropdownMenuItem(value: 'high', child: Text('عالية')),
+                  DropdownMenuItem(value: 'urgent', child: Text('عاجلة')),
+                ],
+                onChanged: (v) => setState(() => priority = v!),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: loading ? null : () async {
+                  if (titleCtrl.text.isEmpty || bodyCtrl.text.isEmpty) return;
+                  setState(() => loading = true);
+                  final ok = await ref.read(ticketsProvider.notifier).createTicket(titleCtrl.text.trim(), bodyCtrl.text.trim(), priority, category);
+                  if (!mounted) return;
+                  Navigator.pop(ctx);
+                  if (ok) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال استفسارك بنجاح'), backgroundColor: AppColors.success));
+                },
+                child: loading
+                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('إرسال', style: TextStyle(color: Colors.white)),
+              ),
+              const SizedBox(height: 16),
+            ]),
+          ),
         ),
       )),
+    );
+  }
+}
+
+class _CategorySelector extends StatelessWidget {
+  final String selected;
+  final ValueChanged<String> onChanged;
+  const _CategorySelector({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final categories = ['question', 'fatwa', 'complaint', 'suggestion'];
+    return Row(
+      children: categories.map((cat) {
+        final isSelected = selected == cat;
+        final color = _categoryColors[cat] ?? AppColors.primary;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(cat),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelected ? color.withOpacity(0.12) : AppColors.surface,
+                border: Border.all(color: isSelected ? color : AppColors.border, width: isSelected ? 2 : 1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(children: [
+                Icon(_categoryIcons[cat]!, color: isSelected ? color : AppColors.textMuted, size: 20),
+                const SizedBox(height: 4),
+                Text(_categoryLabels[cat]!, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400, color: isSelected ? color : AppColors.textSecondary), textAlign: TextAlign.center),
+              ]),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -205,7 +286,7 @@ class _TicketsList extends StatelessWidget {
       return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         const Icon(Icons.inbox_rounded, size: 48, color: AppColors.textMuted),
         const SizedBox(height: 12),
-        Text('لا توجد تذاكر', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+        Text('لا توجد استفسارات', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
       ]));
     }
     return RefreshIndicator(
@@ -238,10 +319,10 @@ class _TicketCard extends StatelessWidget {
   };
 
   String get _statusLabel => switch (ticket.status) {
-    'open' => 'مفتوحة',
+    'open' => 'مفتوح',
     'in_progress' => 'قيد المعالجة',
-    'resolved' => 'محلولة',
-    _ => 'مغلقة',
+    'resolved' => 'تمت الإجابة',
+    _ => 'مُغلق',
   };
 
   String get _priorityLabel => switch (ticket.priority) {
@@ -253,6 +334,10 @@ class _TicketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final catColor = _categoryColors[ticket.ticketCategory] ?? AppColors.primary;
+    final catIcon = _categoryIcons[ticket.ticketCategory] ?? Icons.help_outline_rounded;
+    final catLabel = _categoryLabels[ticket.ticketCategory] ?? 'استفسار';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -261,10 +346,22 @@ class _TicketCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text(ticket.title, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700))),
+            // Category badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: catColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(catIcon, size: 12, color: catColor),
+                const SizedBox(width: 4),
+                Text(catLabel, style: TextStyle(color: catColor, fontSize: 11, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+            const SizedBox(width: 8),
             Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(_statusLabel, style: TextStyle(color: _statusColor, fontSize: 11, fontWeight: FontWeight.w600))),
           ]),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          Text(ticket.title, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
           Text(ticket.body, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 10),
           Row(children: [

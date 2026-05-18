@@ -33,6 +33,10 @@ class AdminLoginRequest(BaseModel):
     username: str
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 
 # ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -138,6 +142,8 @@ class CreateGroupRequest(BaseModel):
 
 # ─── Tickets ──────────────────────────────────────────────────────────────────
 
+TICKET_CATEGORIES = {"question", "fatwa", "complaint", "suggestion"}
+
 class TicketResponse(BaseModel):
     id: str
     title: str
@@ -148,6 +154,7 @@ class TicketResponse(BaseModel):
     assignee: Optional[UserResponse]
     status: str
     priority: str
+    ticket_category: Optional[str] = "question"
     replies: List[TicketReplyResponse] = []
     resolved_at: Optional[datetime]
     created_at: datetime
@@ -157,6 +164,7 @@ class CreateTicketRequest(BaseModel):
     title: str
     body: str
     priority: str = "medium"
+    ticket_category: Optional[str] = "question"
 
 class TicketReplyResponse(BaseModel):
     id: str

@@ -54,19 +54,32 @@ class AdminDashboardScreen extends ConsumerWidget {
             data: (stats) => _StatsGrid(stats: stats),
           ),
           const SizedBox(height: 24),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: activityAsync.when(
+          // Responsive: Row on wide screens, Column on mobile
+          LayoutBuilder(builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 600;
+            final activityWidget = activityAsync.when(
               loading: () => _LoadingCard(title: 'النشاط الأخير'),
               error: (_, __) => _LoadingCard(title: 'النشاط الأخير'),
               data: (data) => _RecentActivityCard(data: data),
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: statsAsync.when(
+            );
+            final pendingWidget = statsAsync.when(
               loading: () => _LoadingCard(title: 'الإجراءات المطلوبة'),
               error: (_, __) => _LoadingCard(title: 'الإجراءات المطلوبة'),
               data: (stats) => _PendingActionsCard(stats: stats),
-            )),
-          ]),
+            );
+            if (isWide) {
+              return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: activityWidget),
+                const SizedBox(width: 16),
+                Expanded(child: pendingWidget),
+              ]);
+            }
+            return Column(children: [
+              activityWidget,
+              const SizedBox(height: 16),
+              pendingWidget,
+            ]);
+          }),
         ]),
       ),
     );
@@ -83,8 +96,8 @@ class _StatsGrid extends StatelessWidget {
       _StatData('مستخدمون نشطون', '${stats.activeUsers}', Icons.person_rounded, AppColors.success),
       _StatData('في انتظار الموافقة', '${stats.pendingUsers}', Icons.hourglass_empty_rounded, AppColors.warning),
       _StatData('إجمالي الرسائل', '${stats.totalMessages}', Icons.message_rounded, AppColors.primary),
-      _StatData('تذاكر مفتوحة', '${stats.openTickets}', Icons.confirmation_number_rounded, AppColors.error),
-      _StatData('إجمالي التذاكر', '${stats.totalTickets}', Icons.inbox_rounded, AppColors.secondaryLight),
+      _StatData('استفسارات مفتوحة', '${stats.openTickets}', Icons.help_outline_rounded, AppColors.error),
+      _StatData('إجمالي الاستفسارات', '${stats.totalTickets}', Icons.inbox_rounded, AppColors.secondaryLight),
       _StatData('المجموعات', '${stats.totalGroups}', Icons.group_rounded, AppColors.accent),
       _StatData('الدورات', '${stats.totalCourses}', Icons.school_rounded, AppColors.info),
     ];
@@ -113,7 +126,7 @@ class _StatCard extends StatelessWidget {
       ]),
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(data.value, style: AppTextStyles.h2.copyWith(color: data.color)),
-        Text(data.label, style: AppTextStyles.caption),
+        Text(data.label, style: AppTextStyles.caption, overflow: TextOverflow.ellipsis, maxLines: 2),
       ]),
     ]),
   );
@@ -137,8 +150,9 @@ class _RecentActivityCard extends StatelessWidget {
           child: Row(children: [
             Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
             const SizedBox(width: 10),
-            Expanded(child: Text('انضم: ${u['display_name'] ?? u['username']}', style: AppTextStyles.bodySmall)),
-            Text(u['role'] as String? ?? '', style: AppTextStyles.caption),
+            Expanded(child: Text('انضم: ${u['display_name'] ?? u['username']}', style: AppTextStyles.bodySmall, overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 4),
+            Text(_roleLabel(u['role'] as String? ?? ''), style: AppTextStyles.caption),
           ]),
         )),
         ...tickets.take(3).map((t) => Padding(
@@ -146,7 +160,7 @@ class _RecentActivityCard extends StatelessWidget {
           child: Row(children: [
             Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.warning, shape: BoxShape.circle)),
             const SizedBox(width: 10),
-            Expanded(child: Text('تذكرة: ${t['title']}', style: AppTextStyles.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text('استفسار: ${t['title']}', style: AppTextStyles.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis)),
           ]),
         )),
         if (users.isEmpty && tickets.isEmpty)
@@ -154,6 +168,15 @@ class _RecentActivityCard extends StatelessWidget {
       ]),
     );
   }
+
+  String _roleLabel(String role) => switch (role) {
+    'admin' => 'مدير',
+    'moderator' => 'مشرف',
+    'sheikh' => 'شيخ',
+    'male_student' => 'طالب',
+    'female_student' => 'طالبة',
+    _ => role,
+  };
 }
 
 class _PendingActionsCard extends StatelessWidget {
@@ -167,7 +190,7 @@ class _PendingActionsCard extends StatelessWidget {
       Text('الإجراءات المطلوبة', style: AppTextStyles.h3),
       const SizedBox(height: 12),
       _ActionItem(icon: Icons.person_add_rounded, label: 'طلبات تسجيل معلقة: ${stats.pendingUsers}', color: stats.pendingUsers > 0 ? AppColors.warning : AppColors.textMuted),
-      _ActionItem(icon: Icons.confirmation_number_rounded, label: 'تذاكر مفتوحة: ${stats.openTickets}', color: stats.openTickets > 0 ? AppColors.error : AppColors.textMuted),
+      _ActionItem(icon: Icons.help_outline_rounded, label: 'استفسارات مفتوحة: ${stats.openTickets}', color: stats.openTickets > 0 ? AppColors.error : AppColors.textMuted),
       _ActionItem(icon: Icons.people_rounded, label: 'مستخدمون نشطون: ${stats.activeUsers}', color: AppColors.success),
       _ActionItem(icon: Icons.school_rounded, label: 'دورات مُسجَّلة: ${stats.totalCourses}', color: AppColors.info),
     ]),
@@ -182,7 +205,7 @@ class _ActionItem extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: Row(children: [
       Icon(icon, color: color, size: 18), const SizedBox(width: 10),
-      Expanded(child: Text(label, style: AppTextStyles.bodySmall)),
+      Expanded(child: Text(label, style: AppTextStyles.bodySmall, overflow: TextOverflow.ellipsis)),
     ]),
   );
 }
